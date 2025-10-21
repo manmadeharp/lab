@@ -5,7 +5,7 @@ Created on Wed Sep  6 15:32:51 2023
 
 Two tasks:
 - See what optimal values can be found based on initial configuration or initial configuration with robot looking behind (just rotated 180 degrees)
-- 
+- Test to see if an optimal solution can be found faster and more accurately by generating 50 initial configurations and lowering the tolerance.
 
 @author: stonneau & Finbar
 """
@@ -31,7 +31,7 @@ from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 
 def ineq_constraint(q):
     distance = distanceToObstacle(robot, q)# - 100*collision(robot,q)
-    return np.array([100*distance])
+    return np.array([20*distance])
     # return np.concatenate((q_upper_limit, q_lower_limit, np.array([distance])), axis=None)
 
 def bfgs_minimisation_objective(q, cube_placement):
@@ -97,6 +97,9 @@ def slsqp_minimisation_objective(q, cube_placement):
             # When using 2 norm solutions are found more often but slower, while 1 norm can find sparser solutions faster
             (np.linalg.norm(left_cost, ord=2)
             + np.linalg.norm(right_cost, ord=2))
+            # + 0.01*np.linalg.norm(q[0], ord=2)
+            + 5*np.linalg.norm(q[1:3], ord=2)
+            # + 0.0001*np.linalg.norm(q, ord=2)
     )
 
 def optimiser_callback(q):

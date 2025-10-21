@@ -3,7 +3,11 @@
 """
 Created on Wed Sep  6 15:32:51 2023
 
-@author: stonneau
+Two tasks:
+- See what optimal values can be found based on initial configuration or initial configuration with robot looking behind (just rotated 180 degrees)
+- 
+
+@author: stonneau & Finbar
 """
 
 import pinocchio as pin 
@@ -45,10 +49,10 @@ def bfgs_minimisation_objective(q, cube_placement):
     right_cost = pin.log(left_effectorMleft_cube).vector
 
     return (
-            10*(np.linalg.norm(left_cost, ord=2)
+            (np.linalg.norm(left_cost, ord=2)
             + np.linalg.norm(right_cost, ord=2))
-            + 100*ineq_constraint(q)
-            + 1000*(jointlimitscost(robot,q))
+            # + ineq_constraint(q)
+            # + 0.1*(jointlimitscost(robot,q))
     )
 
 def slsqp_minimisation_objective(q, cube_placement):
@@ -70,12 +74,15 @@ def slsqp_minimisation_objective(q, cube_placement):
     # as well as the fact that the L2 norm promotes similarity of the decision variables.
     # The set of optimal solutions is going to be tiny (and sparse!) Compared to the feasible region.
     return (
+            # When using 2 norm solutions are found more often but slower, while 1 norm can find sparser solutions faster
             (np.linalg.norm(left_cost, ord=1)
             + np.linalg.norm(right_cost, ord=1))
     )
 
 def optimiser_callback(q):
+    pass
     updatevisuals(viz, robot, cube, q)
+    # time.sleep(0.2)
 
 def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
@@ -83,22 +90,36 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     oMleft_cube=getcubeplacement(cube, LEFT_HOOK)
     oMright_cube=getcubeplacement(cube, RIGHT_HOOK)
 
+    q_reversed = robot.q0
+    q_reversed[0] += np.pi
+
     joint_bounds = [(robot.model.lowerPositionLimit[i], robot.model.upperPositionLimit[i]) for i in range(0, len(robot.model.upperPositionLimit))]
 
     # bfgs_t0 = time.time()
-    # bfgs_result = fmin_bfgs(lambda q: bfgs_minimisation_objective(q, (oMleft_cube, oMright_cube)), qcurrent, callback=optimiser_callback, full_output=True, disp=False)
+    # bfgs_result = fmin_bfgs(lambda q: bfgs_minimisation_objective(q, (oMleft_cube, oMright_cube)), qcurrent, callback=optimiser_callback, full_output=True, disp=True)
     # bfgs_t1 = time.time()
     # bfgs_xopt,bfgs_fopt,_,bfgs_gopt,_,bfgs_warnflag,_ = bfgs_result
     
     slsqp_t0 = time.time()
-    slsqp_result = fmin_slsqp(lambda q: slsqp_minimisation_objective(q, (oMleft_cube, oMright_cube)), qcurrent,  f_ieqcons=ineq_constraint, bounds=joint_bounds,  callback=optimiser_callback, full_output=True, disp=False,iter=1000)
+    slsqp_result = fmin_slsqp(lambda q: slsqp_minimisation_objective(q, (oMleft_cube, oMright_cube)), qcurrent,  f_ieqcons=ineq_constraint, bounds=joint_bounds,  callback=optimiser_callback, full_output=True, disp=False,iter=3000)
     slsqp_t1 = time.time()
     slsqp_out,slsqp_fx,_,slsqp_imode,slsqp_smode = slsqp_result
 
-    # print("bfgs: ", bfgs_t1 - bfgs_t0, bfgs_fopt, bfgs_warnflag)
     print("slsqp: ", slsqp_t1 - slsqp_t0, slsqp_fx, slsqp_imode)
+    print("Distance of robot to configuration: ", slsqp_minimisation_objective(slsqp_out, (oMleft_cube, oMright_cube)))
+    slsqp_t0 = time.time()
+    slsqp_result = fmin_slsqp(lambda q: slsqp_minimisation_objective(q, (oMleft_cube, oMright_cube)), q_reversed,  f_ieqcons=ineq_constraint, bounds=joint_bounds,  callback=optimiser_callback, full_output=True, disp=False,iter=3000)
+    slsqp_t1 = time.time()
+    slsqp_out,slsqp_fx,_,slsqp_imode,slsqp_smode = slsqp_result
 
-    return slsqp_out, True if slsqp_imode == 0 and slsqp_fx < EPSILON else False
+    print("slsqp: ", slsqp_t1 - slsqp_t0, slsqp_fx, slsqp_imode)
+    print("Distance of robot to configuration: ", slsqp_minimisation_objective(slsqp_out, (oMleft_cube, oMright_cube)))
+
+    # print("bfgs: ", bfgs_t1 - bfgs_t0, bfgs_fopt, bfgs_warnflag)
+    # print("Distance of robot to configuration: ", slsqp_minimisation_objective(bfgs_xopt, (oMleft_cube, oMright_cube)))
+
+    return slsqp_out, True if slsqp_imode == 0 and slsqp_minimisation_objective(slsqp_out, (oMleft_cube, oMright_cube)) < EPSILON else False
+    return bfgs_xopt, True if bfgs_warnflag == 0 and slsqp_minimisation_objective(bfgs_xopt, (oMleft_cube, oMright_cube)) < EPSILON else False
             
 if __name__ == "__main__":
     from tools import setupwithmeshcat
@@ -108,11 +129,16 @@ if __name__ == "__main__":
     q = robot.q0.copy()
 
     q0,successinit = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT, viz)
+    print("Success? ", successinit)
+    time.sleep(2)
     qe,successend = computeqgrasppose(robot, q, cube, CUBE_PLACEMENT_TARGET,  viz)
+    print("Success? ", successend)
 
     # Randomised cube positions for testing arbitrary cube positions
     for i in range(5):
         qi, success = computeqgrasppose(robot, q, cube, pin.SE3(rotate('z', np.random.rand()), np.array( [np.random.rand()-0.5, np.random.rand()-0.5,  0.94]) ) )
+        print("Success? ", success)
+        time.sleep(2)
     
     updatevisuals(viz, robot, cube, qe)
     

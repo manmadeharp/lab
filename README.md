@@ -7,6 +7,37 @@ This readme provides you with the instructions for installing the lab requiremen
 These instructions are very similar to the [tutorials instructions](https://github.com/ediadvancedrobotics/tutorials).
 
 ## Set up 
+## For **Vitalis**
+just type the following in the base of the repo
+```bash
+git branch
+```
+**If you are in the master branch do the following (the branch you are in will be in green text):**
+``` bash
+git add .
+git commit -m "Commit Message"
+git checkout vitalis
+git merge master
+git push origin vitalis
+```
+Then continue on making edits in the vitalis branch.
+
+**If you are in the vitalis branch do the following:**
+``` bash
+git add .
+git commmit -m "Commit Message"
+git push origin vitalis
+```
+
+**If we are merging our branches together, make sure you are in the vitalis branch, then:**
+```bash
+git checkout vitalis
+git add .
+git commit -m "Vitalis Merge Message"
+git checkout master
+git merge vitalis
+```
+**Then we can discuss how to handle merge conflicts.**
 
 ### On a DICE machine
 On DICE, we will clone the [lab repository](https://github.com/ediadvancedrobotics/lab) and install the required [dependencies](https://github.com/ediadvancedrobotics/lab/blob/main/requirements.txt). 

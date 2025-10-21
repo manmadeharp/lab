@@ -141,7 +141,7 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
                             qcurrent,  
                             method='SLSQP', 
                             constraints={
-                                'type': 'ineq',  # Must specify the type
+                                'type': 'ineq', 
                                 'fun': ineq_constraint
                             }, 
                             bounds=joint_bounds,  

@@ -48,11 +48,19 @@ def bfgs_minimisation_objective(q, cube_placement):
     left_cost = pin.log(right_effectorMright_cube).vector
     right_cost = pin.log(left_effectorMleft_cube).vector
 
+    lower = robot.model.lowerPositionLimit   
+    upper = robot.model.upperPositionLimit   
+    margin = 0.05
+
+    viol_low  = np.maximum(0.0, (lower + margin) - q)
+    viol_high = np.maximum(0.0, q - (upper - margin))
+    limit_penalty = np.sum(viol_low**2 + viol_high**2)
+
     return (
             (np.linalg.norm(left_cost, ord=2)
             + np.linalg.norm(right_cost, ord=2))
-            # + ineq_constraint(q)
-            # + 0.1*(jointlimitscost(robot,q))
+            + 100*collision(robot, q)
+            # + limit_penalty
     )
 
 def slsqp_minimisation_objective(q, cube_placement):
@@ -99,27 +107,27 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     # bfgs_result = fmin_bfgs(lambda q: bfgs_minimisation_objective(q, (oMleft_cube, oMright_cube)), qcurrent, callback=optimiser_callback, full_output=True, disp=True)
     # bfgs_t1 = time.time()
     # bfgs_xopt,bfgs_fopt,_,bfgs_gopt,_,bfgs_warnflag,_ = bfgs_result
+
+    # print("bfgs: ", bfgs_t1 - bfgs_t0, bfgs_fopt, bfgs_warnflag)
+    # print("Distance of robot to configuration: ", slsqp_minimisation_objective(bfgs_xopt, (oMleft_cube, oMright_cube)))
     
     slsqp_t0 = time.time()
     slsqp_result = fmin_slsqp(lambda q: slsqp_minimisation_objective(q, (oMleft_cube, oMright_cube)), qcurrent,  f_ieqcons=ineq_constraint, bounds=joint_bounds,  callback=optimiser_callback, full_output=True, disp=False,iter=3000)
     slsqp_t1 = time.time()
     slsqp_out,slsqp_fx,_,slsqp_imode,slsqp_smode = slsqp_result
 
-    print("slsqp: ", slsqp_t1 - slsqp_t0, slsqp_fx, slsqp_imode)
-    print("Distance of robot to configuration: ", slsqp_minimisation_objective(slsqp_out, (oMleft_cube, oMright_cube)))
-    slsqp_t0 = time.time()
-    slsqp_result = fmin_slsqp(lambda q: slsqp_minimisation_objective(q, (oMleft_cube, oMright_cube)), q_reversed,  f_ieqcons=ineq_constraint, bounds=joint_bounds,  callback=optimiser_callback, full_output=True, disp=False,iter=3000)
-    slsqp_t1 = time.time()
-    slsqp_out,slsqp_fx,_,slsqp_imode,slsqp_smode = slsqp_result
+    # For reversed configuration (doesn't really do anything tbh)
+    # slsqp_t0 = time.time()
+    # slsqp_result = fmin_slsqp(lambda q: slsqp_minimisation_objective(q, (oMleft_cube, oMright_cube)), q_reversed,  f_ieqcons=ineq_constraint, bounds=joint_bounds,  callback=optimiser_callback, full_output=True, disp=False,iter=3000)
+    # slsqp_t1 = time.time()
+    # slsqp_out,slsqp_fx,_,slsqp_imode,slsqp_smode = slsqp_result
 
     print("slsqp: ", slsqp_t1 - slsqp_t0, slsqp_fx, slsqp_imode)
     print("Distance of robot to configuration: ", slsqp_minimisation_objective(slsqp_out, (oMleft_cube, oMright_cube)))
 
-    # print("bfgs: ", bfgs_t1 - bfgs_t0, bfgs_fopt, bfgs_warnflag)
-    # print("Distance of robot to configuration: ", slsqp_minimisation_objective(bfgs_xopt, (oMleft_cube, oMright_cube)))
 
     return slsqp_out, True if slsqp_imode == 0 and slsqp_minimisation_objective(slsqp_out, (oMleft_cube, oMright_cube)) < EPSILON else False
-    return bfgs_xopt, True if bfgs_warnflag == 0 and slsqp_minimisation_objective(bfgs_xopt, (oMleft_cube, oMright_cube)) < EPSILON else False
+    # return bfgs_xopt, True if bfgs_warnflag == 0 and slsqp_minimisation_objective(bfgs_xopt, (oMleft_cube, oMright_cube)) < EPSILON else False
             
 if __name__ == "__main__":
     from tools import setupwithmeshcat

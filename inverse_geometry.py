@@ -15,11 +15,13 @@ from config import CUBE_PLACEMENT, CUBE_PLACEMENT_TARGET
 
 from tools import setcubeplacement
 
+
+
+
 def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     '''Return a collision free configuration grasping a cube at a specific location and a success flag'''
     setcubeplacement(robot, cube, cubetarget)
-    #TODO implement
-    print ("TODO: implement me")
+
     return robot.q0, False
             
 if __name__ == "__main__":

@@ -70,8 +70,9 @@ def slsqp_minimisation_objective(q, cube_placement):
     # as well as the fact that the L2 norm promotes similarity of the decision variables.
     # The set of optimal solutions is going to be tiny (and sparse!) Compared to the feasible region.
     return (
-            (np.linalg.norm(left_cost, ord=1)
-            + np.linalg.norm(right_cost, ord=1))
+            # When using 2 norm solutions are found more often but slower, while 1 norm can find sparser solutions faster
+            (np.linalg.norm(left_cost, ord=2)
+            + np.linalg.norm(right_cost, ord=2))
     )
 
 def optimiser_callback(q):
@@ -91,14 +92,14 @@ def computeqgrasppose(robot, qcurrent, cube, cubetarget, viz=None):
     # bfgs_xopt,bfgs_fopt,_,bfgs_gopt,_,bfgs_warnflag,_ = bfgs_result
     
     slsqp_t0 = time.time()
-    slsqp_result = fmin_slsqp(lambda q: slsqp_minimisation_objective(q, (oMleft_cube, oMright_cube)), qcurrent,  f_ieqcons=ineq_constraint, bounds=joint_bounds,  callback=optimiser_callback, full_output=True, disp=False,iter=1000)
+    slsqp_result = fmin_slsqp(lambda q: slsqp_minimisation_objective(q, (oMleft_cube, oMright_cube)), qcurrent,  f_ieqcons=ineq_constraint, bounds=joint_bounds,  callback=optimiser_callback, full_output=True, disp=False,iter=3000)
     slsqp_t1 = time.time()
     slsqp_out,slsqp_fx,_,slsqp_imode,slsqp_smode = slsqp_result
 
     # print("bfgs: ", bfgs_t1 - bfgs_t0, bfgs_fopt, bfgs_warnflag)
     print("slsqp: ", slsqp_t1 - slsqp_t0, slsqp_fx, slsqp_imode)
 
-    return slsqp_out, True if slsqp_imode == 0 and slsqp_fx < EPSILON else False
+    return slsqp_out, True if slsqp_imode == 0 or slsqp_minimisation_objective(slsqp_out, (oMleft_cube, oMright_cube)) > EPSILON else False
             
 if __name__ == "__main__":
     from tools import setupwithmeshcat
@@ -113,6 +114,7 @@ if __name__ == "__main__":
     # Randomised cube positions for testing arbitrary cube positions
     for i in range(5):
         qi, success = computeqgrasppose(robot, q, cube, pin.SE3(rotate('z', np.random.rand()), np.array( [np.random.rand()-0.5, np.random.rand()-0.5,  0.94]) ) )
+        time.sleep(2)
     
     updatevisuals(viz, robot, cube, qe)
     
